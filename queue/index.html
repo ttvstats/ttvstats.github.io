@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Clip Queue</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1><i class="fab fa-twitch"></i> Twitch Clip Queue</h1>
+            <div class="auth-section">
+                <button id="login-btn">Log in with Twitch</button>
+                <div id="user-info" class="hidden">
+                    <img id="user-avatar" src="" alt="User avatar">
+                    <span id="username"></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="queue-controls">
+                    <button id="add-clip-btn"><i class="fas fa-plus"></i> Add Clip</button>
+                    <div class="search-box">
+                        <input type="text" placeholder="Search clips...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+                
+                <div class="filter-section">
+                    <h3>Filters</h3>
+                    <div class="filter-tags">
+                        <span class="tag active" data-tag="all">All</span>
+                        <span class="tag" data-tag="funny">Funny</span>
+                        <span class="tag" data-tag="hype">Hype</span>
+                        <span class="tag" data-tag="fail">Fail</span>
+                        <span class="tag" data-tag="highlight">Highlight</span>
+                    </div>
+                    
+                    <h3>Priority</h3>
+                    <div class="priority-filters">
+                        <span class="priority-filter active" data-priority="all">All</span>
+                        <span class="priority-filter" data-priority="high"><i class="fas fa-arrow-up"></i> High</span>
+                        <span class="priority-filter" data-priority="medium"><i class="fas fa-equals"></i> Medium</span>
+                        <span class="priority-filter" data-priority="low"><i class="fas fa-arrow-down"></i> Low</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="clip-queue">
+                <div class="queue-header">
+                    <h2>Your Clip Queue <span id="queue-count">(0)</span></h2>
+                    <div class="view-options">
+                        <button class="view-option active" data-view="grid"><i class="fas fa-th"></i></button>
+                        <button class="view-option" data-view="list"><i class="fas fa-list"></i></button>
+                        <button class="view-option" data-view="timeline"><i class="fas fa-calendar-alt"></i></button>
+                    </div>
+                </div>
+
+                <div class="queue-grid" id="queue-container">
+                    <!-- Clips will be added here dynamically -->
+                    <div class="empty-queue">
+                        <i class="fas fa-clipboard-list"></i>
+                        <p>Your queue is empty</p>
+                        <button id="empty-add-clip">Add your first clip</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="clip-preview hidden" id="clip-preview">
+                <button class="close-preview"><i class="fas fa-times"></i></button>
+                <div class="preview-content">
+                    <div class="preview-video">
+                        <iframe id="clip-embed" src="" frameborder="0" allowfullscreen></iframe>
+                    </div>
+                    <div class="preview-details">
+                        <h3 id="clip-title"></h3>
+                        <div class="clip-meta">
+                            <span id="clip-game"></span>
+                            <span id="clip-date"></span>
+                            <span id="clip-views"></span>
+                        </div>
+                        <div class="clip-actions">
+                            <div class="priority-selector">
+                                <span>Priority:</span>
+                                <select id="priority-select">
+                                    <option value="high">High</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="low">Low</option>
+                                </select>
+                            </div>
+                            <div class="tag-selector">
+                                <span>Tags:</span>
+                                <div class="tags-container">
+                                    <span class="tag-option" data-tag="funny">Funny</span>
+                                    <span class="tag-option" data-tag="hype">Hype</span>
+                                    <span class="tag-option" data-tag="fail">Fail</span>
+                                    <span class="tag-option" data-tag="highlight">Highlight</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="notes-section">
+                            <label for="clip-notes">Notes:</label>
+                            <textarea id="clip-notes" placeholder="Add notes about this clip..."></textarea>
+                        </div>
+                        <div class="preview-buttons">
+                            <button class="btn-save">Save Changes</button>
+                            <button class="btn-post">Post Now</button>
+                            <button class="btn-remove">Remove from Queue</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="add-clip-modal hidden" id="add-clip-modal">
+            <div class="modal-content">
+                <button class="close-modal"><i class="fas fa-times"></i></button>
+                <h2>Add Clip to Queue</h2>
+                <div class="add-methods">
+                    <div class="add-method">
+                        <h3>Paste Clip URL</h3>
+                        <input type="text" id="clip-url" placeholder="https://clips.twitch.tv/...">
+                        <button id="fetch-clip">Fetch Clip</button>
+                    </div>
+                    <div class="add-method">
+                        <h3>Your Recent Clips</h3>
+                        <div class="recent-clips" id="recent-clips">
+                            <!-- Recent clips will be loaded here -->
+                            <div class="loading-clips">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p>Loading your recent clips...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
