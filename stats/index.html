@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Statistics</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --twitch-purple: #9147ff;
+            --twitch-purple-dark: #772ce8;
+            --bg-dark: #1a1a1a;
+            --bg-darker: #0e0e0e;
+            --card-bg: #2a2a2a;
+            --text-light: #ffffff;
+            --text-muted: #aaaaaa;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--twitch-purple);
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+        
+        .heatmap-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .streamer-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .streamer-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .streamer-avatar {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+        
+        .streamer-live {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #e91916;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+        
+        .streamer-info {
+            padding: 12px;
+        }
+        
+        .streamer-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .streamer-game {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .viewer-count {
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .viewer-icon {
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border-radius: 50%;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+            background-color: var(--bg-darker);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        label {
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+        
+        select, input {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: var(--card-bg);
+            color: var(--text-light);
+            min-width: 150px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: var(--twitch-purple);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        button:hover {
+            background-color: var(--twitch-purple-dark);
+        }
+        
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        
+        .heatmap-legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8em;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--twitch-purple);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+            gap: 10px;
+        }
+        
+        .pagination button {
+            min-width: 40px;
+        }
+        
+        .error-message {
+            background-color: #ff3333;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            display: none;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        
+        .modal-close:hover {
+            color: var(--text-light);
+        }
+        
+        .modal-header {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .modal-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .modal-title {
+            flex: 1;
+        }
+        
+        .modal-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background-color: var(--bg-dark);
+            padding: 10px;
+            border-radius: 6px;
+        }
+        
+        .stat-label {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .modal-description {
+            margin-top: 20px;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+        
+        .modal-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        .tag {
+            background-color: var(--twitch-purple);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        
+        /* Chart containers */
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .chart-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .chart-title {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: var(--twitch-purple);
+            font-size: 1.2em;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        /* Welcome Loading Screen */
+        .welcome-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-darker);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+        
+        .welcome-logo {
+            font-size: 3rem;
+            color: var(--twitch-purple);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .welcome-logo i {
+            font-size: 4rem;
+        }
+        
+        .welcome-message {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+        
+        .welcome-progress {
+            width: 300px;
+            max-width: 80%;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .welcome-progress-bar {
+            height: 100%;
+            width: 0;
+            background-color: var(--twitch-purple);
+            transition: width 0.3s ease;
+        }
+        
+        .welcome-status {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        
+        @media (max-width: 768px) {
+            .heatmap-container {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .filter-group {
+                width: 100%;
+            }
+            
+            select, input {
+                flex: 1;
+            }
+            
+            .modal-header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            
+            .modal-stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-wrapper {
+                height: 250px;
+            }
+            
+            .welcome-logo {
+                font-size: 2rem;
+            }
+            
+            .welcome-message {
+                font-size: 1.2rem;
+                padding: 0 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Welcome Loading Screen -->
+    <div class="welcome-loading" id="welcome-loading">
+        <div class="welcome-logo">
+            <i class="fab fa-twitch"></i>
+            <span>Twitch Statistics</span>
+        </div>
+        <div class="welcome-message">
+            Loading the latest streaming data and analytics...
+        </div>
+        <div class="welcome-progress">
+            <div class="welcome-progress-bar" id="welcome-progress"></div>
+        </div>
+        <div class="welcome-status" id="welcome-status">Initializing application...</div>
+    </div>
+    
+    <div class="container" id="main-content" style="display: none;">
+        <h1>Twitch Statistics</h1>
+        
+        <div class="error-message" id="error-message"></div>
+        
+        <div class="controls">
+            <div class="filter-group">
+                <label for="sort-by"><i class="fas fa-sort"></i> Sort by:</label>
+                <select id="sort-by">
+                    <option value="viewers">Viewers (High to Low)</option>
+                    <option value="viewers-asc">Viewers (Low to High)</option>
+                    <option value="name">Streamer Name</option>
+                    <option value="game">Game</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="game-filter"><i class="fas fa-gamepad"></i> Game:</label>
+                <select id="game-filter">
+                    <option value="all">All Games</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="search"><i class="fas fa-search"></i> Search:</label>
+                <input type="text" id="search" placeholder="Streamer or game...">
+            </div>
+            
+            <button id="refresh-btn">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+        
+        <!-- Charts Section -->
+        <div class="charts-container" id="charts-container">
+            <div class="chart-card">
+                <h3 class="chart-title">Top Games by Viewers</h3>
+                <div class="chart-wrapper">
+                    <canvas id="gamesChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Viewer Distribution</h3>
+                <div class="chart-wrapper">
+                    <canvas id="viewersChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Streams by Language</h3>
+                <div class="chart-wrapper">
+                    <canvas id="languageChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Viewers Over Time</h3>
+                <div class="chart-wrapper">
+                    <canvas id="timeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Loading streamers data...</div>
+        </div>
+        
+        <div class="heatmap-container" id="heatmap"></div>
+        
+        <div class="pagination" id="pagination">
+            <button id="prev-page" disabled><i class="fas fa-chevron-left"></i></button>
+            <span id="page-info">Page 1</span>
+            <button id="next-page"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        
+        <div class="heatmap-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff0000;"></div>
+                <span>10,000+ viewers</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff6600;"></div>
+                <span>5,000-10,000</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffcc00;"></div>
+                <span>1,000-5,000</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #33cc33;"></div>
+                <span>100-1,000</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #0066ff;"></div>
+                <span>0-100</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Streamer Modal -->
+    <div class="modal" id="streamer-modal">
+        <div class="modal-content">
+            <span class="modal-close" id="modal-close">&times;</span>
+            <div class="modal-header">
+                <img src="" alt="Streamer Avatar" class="modal-avatar" id="modal-avatar">
+                <div class="modal-title">
+                    <h2 id="modal-name"></h2>
+                    <div id="modal-game"></div>
+                    <div class="viewer-count" id="modal-viewers"></div>
+                </div>
+            </div>
+            
+            <div class="modal-stats">
+                <div class="stat-item">
+                    <div class="stat-label">Started Streaming</div>
+                    <div class="stat-value" id="modal-started"></div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Followers</div>
+                    <div class="stat-value" id="modal-followers"></div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Language</div>
+                    <div class="stat-value" id="modal-language"></div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Stream Type</div>
+                    <div class="stat-value" id="modal-type"></div>
+                </div>
+            </div>
+            
+            <div class="modal-description" id="modal-description">
+                No description available.
+            </div>
+            
+            <div class="modal-tags" id="modal-tags"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const config = {
+            twitchClientId: 'fxe8z9ccp1852u30dy2uq3qeis8no9', // Replace with your Twitch Client ID
+            twitchAccessToken: 'uw4glmwkytufknhuzamvcdx459s3kt', // Replace with your Twitch Access Token
+            streamsPerPage: 20,
+            maxStreamsToFetch: 1000
+        };
+
+        // DOM elements
+        const heatmapContainer = document.getElementById('heatmap');
+        const sortBySelect = document.getElementById('sort-by');
+        const gameFilterSelect = document.getElementById('game-filter');
+        const searchInput = document.getElementById('search');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const loadingElement = document.getElementById('loading');
+        const errorMessageElement = document.getElementById('error-message');
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const pageInfoElement = document.getElementById('page-info');
+        const modal = document.getElementById('streamer-modal');
+        const modalClose = document.getElementById('modal-close');
+        const welcomeLoading = document.getElementById('welcome-loading');
+        const welcomeProgress = document.getElementById('welcome-progress');
+        const welcomeStatus = document.getElementById('welcome-status');
+        const mainContent = document.getElementById('main-content');
+        
+        // Chart instances
+        let gamesChart = null;
+        let viewersChart = null;
+        let languageChart = null;
+        let timeChart = null;
+
+        // State
+        let allStreams = [];
+        let filteredStreams = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let gamesList = [];
+        let isLoading = false;
+
+        // Initialize the app
+        async function init() {
+            setupEventListeners();
+            
+            // Show welcome loading screen
+            showWelcomeLoading();
+            
+            // Simulate progress for demo purposes
+            simulateLoadingProgress();
+            
+            await fetchStreamsData();
+            
+            // Hide welcome loading screen when done
+            hideWelcomeLoading();
+        }
+
+        // Show welcome loading screen
+        function showWelcomeLoading() {
+            welcomeLoading.style.display = 'flex';
+            mainContent.style.display = 'none';
+        }
+
+        // Hide welcome loading screen
+        function hideWelcomeLoading() {
+            welcomeLoading.style.opacity = '0';
+            setTimeout(() => {
+                welcomeLoading.style.display = 'none';
+                mainContent.style.display = 'block';
+            }, 500); // Match the transition duration
+        }
+
+        // Simulate loading progress for demo purposes
+        function simulateLoadingProgress() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                }
+                updateWelcomeProgress(progress);
+            }, 300);
+        }
+
+        // Update welcome loading progress
+        function updateWelcomeProgress(percent) {
+            welcomeProgress.style.width = `${percent}%`;
+            
+            // Update status text based on progress
+            if (percent < 30) {
+                welcomeStatus.textContent = 'Connecting to Twitch API...';
+            } else if (percent < 60) {
+                welcomeStatus.textContent = 'Fetching stream data...';
+            } else if (percent < 90) {
+                welcomeStatus.textContent = 'Processing analytics...';
+            } else {
+                welcomeStatus.textContent = 'Finalizing dashboard...';
+            }
+        }
+
+        // Fetch streams data from Twitch API
+        async function fetchStreamsData() {
+            try {
+                showLoading();
+                hideError();
+                
+                // First fetch top games to populate filter
+                await fetchTopGames();
+                
+                // Then fetch streams
+                const streams = await fetchAllStreams();
+                allStreams = streams;
+                filteredStreams = [...allStreams];
+                
+                updateGameFilter();
+                renderStreamers();
+                updatePagination();
+                renderCharts();
+            } catch (error) {
+                showError(`Failed to load streams: ${error.message}`);
+                console.error('Error fetching streams:', error);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Fetch top games from Twitch API
+        async function fetchTopGames() {
+            try {
+                updateWelcomeStatus('Fetching top games...');
+                const response = await fetch(
+                    `https://api.twitch.tv/helix/games/top?first=100`,
+                    {
+                        headers: {
+                            'Client-ID': config.twitchClientId,
+                            'Authorization': `Bearer ${config.twitchAccessToken}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                gamesList = data.data.map(game => game.name).sort();
+            } catch (error) {
+                console.error('Error fetching top games:', error);
+                // If we can't get games, we'll just use the ones from streams
+            }
+        }
+
+        // Fetch all streams with pagination
+        async function fetchAllStreams() {
+            let allStreams = [];
+            let cursor = null;
+            let totalFetched = 0;
+            
+            while (totalFetched < config.maxStreamsToFetch) {
+                updateWelcomeStatus(`Fetching streams... (${totalFetched} loaded)`);
+                
+                const url = cursor 
+                    ? `https://api.twitch.tv/helix/streams?first=100&after=${cursor}`
+                    : `https://api.twitch.tv/helix/streams?first=100`;
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Client-ID': config.twitchClientId,
+                        'Authorization': `Bearer ${config.twitchAccessToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                allStreams = [...allStreams, ...data.data];
+                totalFetched += data.data.length;
+                
+                if (!data.pagination || !data.pagination.cursor) {
+                    break;
+                }
+                
+                cursor = data.pagination.cursor;
+            }
+            
+            return allStreams.map(stream => ({
+                id: stream.id,
+                userId: stream.user_id,
+                name: stream.user_name,
+                game: stream.game_name,
+                title: stream.title,
+                viewers: stream.viewer_count,
+                startedAt: stream.started_at,
+                thumbnail: stream.thumbnail_url.replace('{width}', '300').replace('{height}', '300'),
+                language: stream.language,
+                type: stream.type,
+                tagIds: stream.tag_ids || []
+            }));
+        }
+
+        // Update welcome status message
+        function updateWelcomeStatus(message) {
+            welcomeStatus.textContent = message;
+        }
+
+        // Fetch additional streamer details for modal
+        async function fetchStreamerDetails(userId) {
+            try {
+                const response = await fetch(
+                    `https://api.twitch.tv/helix/users?id=${userId}`,
+                    {
+                        headers: {
+                            'Client-ID': config.twitchClientId,
+                            'Authorization': `Bearer ${config.twitchAccessToken}`
+                        }
+                    }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.data[0];
+            } catch (error) {
+                console.error('Error fetching streamer details:', error);
+                return null;
+            }
+        }
+
+        // Render streamers to the heatmap
+        function renderStreamers() {
+            heatmapContainer.innerHTML = '';
+            
+            const startIdx = (currentPage - 1) * config.streamsPerPage;
+            const endIdx = startIdx + config.streamsPerPage;
+            const streamsToShow = filteredStreams.slice(startIdx, endIdx);
+            
+            if (streamsToShow.length === 0) {
+                heatmapContainer.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">No streams match your filters.</div>';
+                return;
+            }
+            
+            streamsToShow.forEach(streamer => {
+                const viewerColor = getViewerColor(streamer.viewers);
+                
+                const card = document.createElement('div');
+                card.className = 'streamer-card';
+                card.innerHTML = `
+                    <div class="streamer-live">LIVE</div>
+                    <img src="${streamer.thumbnail}" alt="${streamer.name}" class="streamer-avatar">
+                    <div class="streamer-info">
+                        <div class="streamer-name" title="${streamer.name}">${streamer.name}</div>
+                        <div class="streamer-game" title="${streamer.game}">${streamer.game}</div>
+                        <div class="viewer-count">
+                            <div class="viewer-icon" style="background-color: ${viewerColor}"></div>
+                            ${streamer.viewers.toLocaleString()} viewers
+                        </div>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => openStreamerModal(streamer));
+                heatmapContainer.appendChild(card);
+            });
+        }
+
+        // Render charts with stream data
+        function renderCharts() {
+            // Destroy existing charts if they exist
+            if (gamesChart) gamesChart.destroy();
+            if (viewersChart) viewersChart.destroy();
+            if (languageChart) languageChart.destroy();
+            if (timeChart) timeChart.destroy();
+            
+            // Prepare data for charts
+            prepareGamesChart();
+            prepareViewersChart();
+            prepareLanguageChart();
+            prepareTimeChart();
+        }
+        
+        // Prepare data for Top Games chart
+        function prepareGamesChart() {
+            const gamesData = {};
+            
+            allStreams.forEach(stream => {
+                if (!stream.game) return;
+                
+                if (!gamesData[stream.game]) {
+                    gamesData[stream.game] = 0;
+                }
+                gamesData[stream.game] += stream.viewers;
+            });
+            
+            // Sort by viewers and take top 10
+            const sortedGames = Object.entries(gamesData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            const gameNames = sortedGames.map(item => item[0]);
+            const gameViewers = sortedGames.map(item => item[1]);
+            
+            const ctx = document.getElementById('gamesChart').getContext('2d');
+            gamesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: gameNames,
+                    datasets: [{
+                        label: 'Total Viewers',
+                        data: gameViewers,
+                        backgroundColor: 'rgba(145, 71, 255, 0.7)',
+                        borderColor: 'rgba(145, 71, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toLocaleString()} viewers`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#aaa',
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#aaa'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Prepare data for Viewers Distribution chart
+        function prepareViewersChart() {
+            const viewerRanges = [
+                { min: 10000, max: Infinity, label: '10,000+' },
+                { min: 5000, max: 9999, label: '5,000-9,999' },
+                { min: 1000, max: 4999, label: '1,000-4,999' },
+                { min: 100, max: 999, label: '100-999' },
+                { min: 0, max: 99, label: '0-99' }
+            ];
+            
+            const counts = viewerRanges.map(range => {
+                return allStreams.filter(stream => 
+                    stream.viewers >= range.min && stream.viewers <= range.max
+                ).length;
+            });
+            
+            const colors = ['#ff0000', '#ff6600', '#ffcc00', '#33cc33', '#0066ff'];
+            
+            const ctx = document.getElementById('viewersChart').getContext('2d');
+            viewersChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: viewerRanges.map(range => range.label),
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: colors,
+                        borderColor: 'rgba(0, 0, 0, 0.5)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#fff'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((context.raw / total) * 100);
+                                    return `${context.label}: ${context.raw} streams (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Prepare data for Language Distribution chart
+        function prepareLanguageChart() {
+            const languageData = {};
+            
+            allStreams.forEach(stream => {
+                if (!stream.language) return;
+                
+                const lang = stream.language.toUpperCase();
+                if (!languageData[lang]) {
+                    languageData[lang] = 0;
+                }
+                languageData[lang]++;
+            });
+            
+            // Sort by count and take top 10
+            const sortedLanguages = Object.entries(languageData)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+            
+            const languages = sortedLanguages.map(item => item[0]);
+            const counts = sortedLanguages.map(item => item[1]);
+            
+            const ctx = document.getElementById('languageChart').getContext('2d');
+            languageChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: languages,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: [
+                            'rgba(145, 71, 255, 0.7)',
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(199, 199, 199, 0.7)',
+                            'rgba(83, 102, 255, 0.7)',
+                            'rgba(255, 99, 255, 0.7)'
+                        ],
+                        borderColor: 'rgba(0, 0, 0, 0.5)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#fff'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((context.raw / total) * 100);
+                                    return `${context.label}: ${context.raw} streams (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Prepare data for Viewers Over Time chart
+        function prepareTimeChart() {
+            // Group by hour of the day (based on startedAt)
+            const hours = Array(24).fill(0).map((_, i) => i);
+            const viewersByHour = Array(24).fill(0);
+            const streamsByHour = Array(24).fill(0);
+            
+            allStreams.forEach(stream => {
+                const date = new Date(stream.startedAt);
+                const hour = date.getHours();
+                viewersByHour[hour] += stream.viewers;
+                streamsByHour[hour]++;
+            });
+            
+            // Calculate average viewers per hour
+            const avgViewersByHour = viewersByHour.map((total, i) => {
+                return streamsByHour[i] > 0 ? Math.round(total / streamsByHour[i]) : 0;
+            });
+            
+            const ctx = document.getElementById('timeChart').getContext('2d');
+            timeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours.map(h => `${h}:00`),
+                    datasets: [{
+                        label: 'Average Viewers',
+                        data: avgViewersByHour,
+                        backgroundColor: 'rgba(145, 71, 255, 0.2)',
+                        borderColor: 'rgba(145, 71, 255, 1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Avg: ${context.parsed.y.toLocaleString()} viewers`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#aaa',
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#aaa'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Get color based on viewer count
+        function getViewerColor(viewers) {
+            if (viewers >= 10000) return '#ff0000';
+            if (viewers >= 5000) return '#ff6600';
+            if (viewers >= 1000) return '#ffcc00';
+            if (viewers >= 100) return '#33cc33';
+            return '#0066ff';
+        }
+
+        // Update game filter dropdown
+        function updateGameFilter() {
+            // Get unique games from streams if we couldn't fetch top games
+            if (gamesList.length === 0) {
+                gamesList = [...new Set(allStreams.map(s => s.game))].sort();
+            }
+            
+            gameFilterSelect.innerHTML = '<option value="all">All Games</option>';
+            gamesList.forEach(game => {
+                const option = document.createElement('option');
+                option.value = game;
+                option.textContent = game;
+                gameFilterSelect.appendChild(option);
+            });
+        }
+
+        // Filter and sort streamers
+        function filterAndSortStreamers() {
+            const sortBy = sortBySelect.value;
+            const gameFilter = gameFilterSelect.value;
+            const searchTerm = searchInput.value.toLowerCase();
+            
+            let filtered = [...allStreams];
+            
+            // Apply game filter
+            if (gameFilter !== 'all') {
+                filtered = filtered.filter(s => s.game === gameFilter);
+            }
+            
+            // Apply search
+            if (searchTerm) {
+                filtered = filtered.filter(s => 
+                    s.name.toLowerCase().includes(searchTerm) || 
+                    s.game.toLowerCase().includes(searchTerm) ||
+                    (s.title && s.title.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            // Apply sorting
+            switch (sortBy) {
+                case 'viewers':
+                    filtered.sort((a, b) => b.viewers - a.viewers);
+                    break;
+                case 'viewers-asc':
+                    filtered.sort((a, b) => a.viewers - b.viewers);
+                    break;
+                case 'name':
+                    filtered.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'game':
+                    filtered.sort((a, b) => a.game.localeCompare(b.game));
+                    break;
+            }
+            
+            filteredStreams = filtered;
+            currentPage = 1;
+            renderStreamers();
+            updatePagination();
+        }
+
+        // Update pagination controls
+        function updatePagination() {
+            totalPages = Math.ceil(filteredStreams.length / config.streamsPerPage);
+            
+            prevPageBtn.disabled = currentPage <= 1;
+            nextPageBtn.disabled = currentPage >= totalPages;
+            
+            pageInfoElement.textContent = `Page ${currentPage} of ${totalPages}`;
+        }
+
+        // Change page
+        function changePage(direction) {
+            if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            } else if (direction === 'next' && currentPage < totalPages) {
+                currentPage++;
+            }
+            
+            renderStreamers();
+            updatePagination();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Open streamer modal
+        async function openStreamerModal(streamer) {
+            showLoading();
+            
+            try {
+                // Basic info
+                document.getElementById('modal-avatar').src = streamer.thumbnail;
+                document.getElementById('modal-name').textContent = streamer.name;
+                document.getElementById('modal-game').textContent = streamer.game;
+                document.getElementById('modal-viewers').innerHTML = `
+                    <div class="viewer-icon" style="background-color: ${getViewerColor(streamer.viewers)}"></div>
+                    ${streamer.viewers.toLocaleString()} viewers
+                `;
+                document.getElementById('modal-started').textContent = new Date(streamer.startedAt).toLocaleString();
+                document.getElementById('modal-language').textContent = streamer.language.toUpperCase();
+                document.getElementById('modal-type').textContent = streamer.type === 'live' ? 'Live Stream' : 'Other';
+                
+                // Fetch additional details
+                const details = await fetchStreamerDetails(streamer.userId);
+                if (details) {
+                    document.getElementById('modal-followers').textContent = details.followers ? details.followers.toLocaleString() : 'N/A';
+                    document.getElementById('modal-description').textContent = details.description || 'No description available.';
+                    
+                    // Update avatar with higher quality if available
+                    if (details.profile_image_url) {
+                        document.getElementById('modal-avatar').src = details.profile_image_url;
+                    }
+                } else {
+                    document.getElementById('modal-followers').textContent = 'N/A';
+                }
+                
+                // Tags (simplified - in a real app you'd fetch tag names)
+                const tagsContainer = document.getElementById('modal-tags');
+                tagsContainer.innerHTML = '';
+                if (streamer.tagIds && streamer.tagIds.length > 0) {
+                    streamer.tagIds.forEach(tagId => {
+                        const tag = document.createElement('span');
+                        tag.className = 'tag';
+                        tag.textContent = `Tag ${tagId.slice(0, 6)}`; // Simplified
+                        tagsContainer.appendChild(tag);
+                    });
+                }
+                
+                modal.style.display = 'flex';
+            } catch (error) {
+                console.error('Error opening modal:', error);
+                showError('Failed to load streamer details');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Close modal
+        function closeModal() {
+            modal.style.display = 'none';
+        }
+
+        // Show loading state
+        function showLoading() {
+            isLoading = true;
+            loadingElement.style.display = 'flex';
+            refreshBtn.disabled = true;
+        }
+
+        // Hide loading state
+        function hideLoading() {
+            isLoading = false;
+            loadingElement.style.display = 'none';
+            refreshBtn.disabled = false;
+        }
+
+        // Show error message
+        function showError(message) {
+            errorMessageElement.textContent = message;
+            errorMessageElement.style.display = 'block';
+        }
+
+        // Hide error message
+        function hideError() {
+            errorMessageElement.style.display = 'none';
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            sortBySelect.addEventListener('change', filterAndSortStreamers);
+            gameFilterSelect.addEventListener('change', filterAndSortStreamers);
+            searchInput.addEventListener('input', filterAndSortStreamers);
+            refreshBtn.addEventListener('click', fetchStreamsData);
+            prevPageBtn.addEventListener('click', () => changePage('prev'));
+            nextPageBtn.addEventListener('click', () => changePage('next'));
+            modalClose.addEventListener('click', closeModal);
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Close modal with ESC key
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            });
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
